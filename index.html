@@ -205,6 +205,7 @@ hr.dv{border:none;border-top:1px solid var(--border);margin:1.1rem 0}
 .lu-trait-chip .tcv{font-size:14px;color:var(--gold2)}
 @media(max-width:780px){.lay{grid-template-columns:1fr}.sb{position:static;height:auto;border-right:none;border-bottom:1px solid var(--border)}.g2,.s2{grid-template-columns:1fr}.wr{grid-template-columns:1fr 1fr}}
 /* Notes tab */
+.hb-form{display:none}.hb-form:first-of-type{display:block}
 .notes-layout{display:grid;grid-template-columns:180px 1fr;gap:1rem;min-height:500px}
 .notes-sidebar{display:flex;flex-direction:column;gap:4px}
 .note-page-btn{width:100%;text-align:left;padding:.45rem .7rem;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);cursor:pointer;font-family:'Crimson Pro',serif;font-size:13px;transition:all .15s;display:flex;align-items:center;justify-content:space-between;gap:4px}
@@ -1049,8 +1050,10 @@ function getArmorStats(c) {
   const ovMinor = (c.threshOverride&&c.threshOverride.minor)||0;
   const ovSevere = (c.threshOverride&&c.threshOverride.severe)||0;
   if (c.equippedArmor) {
-    const a = ARMOR_DB.find(x => x.n === c.equippedArmor);
-    if (a) return { minor: baseMinor + a.minor + ovMinor, severe: baseSevere + a.severe + ovSevere, score: a.score, feat: a.feat, evMod: a.evMod, name: a.n };
+    // Check static catalog first, then homebrew armors stored on the character
+    const a = ARMOR_DB.find(x=>x.n===c.equippedArmor)
+           || (c.homebrewArmors||[]).find(x=>x.n===c.equippedArmor);
+    if (a) return { minor: baseMinor + a.minor + ovMinor, severe: baseSevere + a.severe + ovSevere, score: a.score, feat: a.feat||'', evMod: a.evMod||0, name: a.n };
   }
   return { minor: baseMinor + ovMinor, severe: baseSevere + ovSevere, score: c.armorScore||3, feat: '', evMod: 0, name: null };
 }
@@ -1221,41 +1224,29 @@ function invRemove(c, idx){
   c.inventory.splice(idx,1);
 }
 
-// Move unequipped weapon/armor to inventory automatically (FIXED FOR DUPLICATES)
+// Move unequipped weapon/armor to inventory automatically
 function unequipWeaponToInv(c, slot){
+  // slot: 'primary' or 'secondary'
   const key = slot==='primary'?'equippedPrimary':'equippedSecondary';
   const idx = c[key];
   if(idx===null||idx===undefined)return;
   const w = c.weapons[idx];
   if(w){
-    // Check if this specific weapon (by name) is already in inventory
-    const exists = c.inventory.some(i => i.name === w.name && i.kind === 'weapon');
-    if(!exists) {
-      invAdd(c,{kind:'weapon',name:w.name,summary:`${w.trait} · ${w.range} · ${w.dmg}`,data:w});
-    }
+    invAdd(c,{kind:'weapon',name:w.name,summary:`${w.trait} · ${w.range} · ${w.dmg}`,data:w});
   }
   c[key]=null;
 }
 
 function unequipArmorToInv(c){
   if(!c.equippedArmor)return;
-  const a = ARMOR_DB.find(x=>x.n===c.equippedArmor);
-  // If it's a homebrew armor, find it in the inventory data or reconstruct it
-  let armorData = a;
-  if(!armorData) {
-    // Try to find in inventory if it was homebrew
-    const invItem = c.inventory.find(i => i.name === c.equippedArmor && i.kind === 'armor');
-    if(invItem) armorData = invItem.data;
-  }
-
-  if(armorData){
-    const exists = c.inventory.some(i => i.name === c.equippedArmor && i.kind === 'armor');
-    if(!exists) {
-      invAdd(c,{kind:'armor',name:c.equippedArmor,summary:`T${armorData.t} · ${armorData.minor}/${armorData.severe} · Score ${armorData.score}`,data:armorData});
-    }
+  const a = ARMOR_DB.find(x=>x.n===c.equippedArmor)
+         || (c.homebrewArmors||[]).find(x=>x.n===c.equippedArmor);
+  if(a){
+    invAdd(c,{kind:'armor',name:a.n,summary:`T${a.t} · ${a.minor}/${a.severe} · Score ${a.score}`,data:a});
   }
   c.equippedArmor=null;
 }
+
 const ANCESTRY_DB = {
   'Clank':         {desc:"Sentient mechanical beings built from metal, wood, stone, or other materials. They can resemble humanoids, animals, or inanimate objects, with highly specialized physical configurations. Their lifespan extends as long as they can acquire new parts, though their minds deteriorate over time.",feat:"Purposeful Design: At character creation, choose one of your Experiences that best aligns with your purpose and gain a permanent +1 bonus to it. | Efficient: When you take a short rest, you can choose a long rest move instead of a short rest move."},
   'Drakona':       {desc:"Wingless dragons in humanoid form with thick scales providing excellent natural armor. They are large (5–7 ft), with long sharp teeth and an approximately 350-year lifespan. A powerful elemental breath is passed down through generations.",feat:"Scales: Your scales act as natural protection. When you would take Severe damage, you can mark a Stress to mark 1 fewer Hit Points. | Elemental Breath: Choose an element for your breath (such as electricity, fire, or ice). You can use this breath against a target or group of targets within Very Close range, treating it as an Instinct weapon that deals d8 magic damage using your Proficiency."},
@@ -1319,16 +1310,14 @@ adv:{
   t2:{done:false, slots:[], traitMarks:[]},
   t3:{done:false, slots:[], traitMarks:[]},
   t4:{done:false, slots:[], traitMarks:[]}
-
 },
 // Damage thresholds (tracked manually, increase by 1 each level)
 // Pending domain card picks from level-up
 pendingDomainPicks:[],
 // Subclass tier tracking
 subclassCards:{foundation:false, specialization:false, mastery:false},
-homebrewCards: []
-};
-}
+homebrewCards:[], homebrewArmors:[]
+};}
 let chars=loadAll(), activeId=localStorage.getItem(AK)||null;
 function gA(){return chars.find(c=>c.id===activeId)||null;}
 function sA(id){activeId=id;localStorage.setItem(AK,id||'');}
@@ -1351,8 +1340,9 @@ function showTab(t){document.querySelectorAll('.tb').forEach(b=>b.classList.remo
 // FORM
 // ════════════════════════════════════════════════════════
 function pF(c){
+  if(!c.homebrewCards)c.homebrewCards=[];
+  if(!c.homebrewArmors)c.homebrewArmors=[];
   if(!c)return;
-if(!c.homebrewCards) c.homebrewCards = [];
   // Migrate older characters that lack new fields
   if(!c.adv)c.adv={t2:{done:false,slots:[],traitMarks:[]},t3:{done:false,slots:[],traitMarks:[]},t4:{done:false,slots:[],traitMarks:[]}};
   if(!c.adv.t2)c.adv.t2={done:false,slots:[],traitMarks:[]};
@@ -1385,153 +1375,115 @@ if(!c.homebrewCards) c.homebrewCards = [];
   bCG();bTG();bEL();bWL();showTab('builder');
   setTimeout(()=>{buildWeapCatalog();buildArmorCatalog();},0);
 }
-
-// ─── UPDATED HOME BREW LOGIC ─────────────────────────────────────
-
-function switchHomebrewTab(type) {
-  // 1. Hide all forms
-  document.querySelectorAll('.hb-form').forEach(f => f.style.display = 'none');
-  
-  // 2. Show the selected form
-  const form = document.getElementById(`hb-${type}-form`);
-  if(form) form.style.display = 'block';
-  
-  // 3. Update Tab Active States
-  // Find the tabs container: It is the sibling of the forms inside the Homebrew div
-  const container = document.getElementById('hb-weapon-form').parentElement;
-  const tabs = container.querySelectorAll('.tabs .tb');
-  
-  const map = { 'weapon': 'Weapon', 'armor': 'Armor', 'item': 'Item', 'domain': 'Domain Card' };
-  
-  if(tabs) {
-    tabs.forEach(b => {
-      b.classList.remove('active');
-      if(b.textContent.trim() === map[type]) {
-        b.classList.add('active');
-      }
-    });
-  }
+function switchHomebrewTab(type){
+  document.querySelectorAll('.hb-form').forEach(f=>f.style.display='none');
+  const form=document.getElementById('hb-'+type+'-form');
+  if(form)form.style.display='block';
+  const container=document.getElementById('hb-weapon-form').parentElement;
+  const tabs=container.querySelectorAll('.tabs .tb');
+  const map={weapon:'Weapon',armor:'Armor',item:'Item',domain:'Domain Card'};
+  if(tabs){tabs.forEach(b=>{b.classList.remove('active');if(b.textContent.trim()===map[type])b.classList.add('active');});}
 }
 
-function createHomebrew(type) {
-  const c = gA();
-  if (!c) return;
-  
-  let addedToList = false;
+function createHomebrew(type){
+  const c=gA();if(!c)return;
+  let addedToList=false;
 
-  if (type === 'weapon') {
-    const name = document.getElementById('hb-weap-name').value.trim();
-    if (!name) { showToast('Please enter a weapon name.'); return; }
-    
-    const weaponObj = {
-      name: name,
-      trait: document.getElementById('hb-weap-trait').value,
-      dmg: document.getElementById('hb-weap-dmg').value,
-      range: document.getElementById('hb-weap-range').value,
-      burden: document.getElementById('hb-weap-burden').value,
-      feat: document.getElementById('hb-weap-feat').value,
-      t: parseInt(document.getElementById('hb-weap-tier').value),
-      slot: 'primary',
-      isHomebrew: true // Flag to identify homebrew items
+  if(type==='weapon'){
+    const name=document.getElementById('hb-weap-name').value.trim();
+    if(!name){showToast('Please enter a weapon name.');return;}
+    // SRD: base die only — proficiency multiplies the die count at render time
+    const die=document.getElementById('hb-weap-die').value;         // e.g. "d8"
+    const flat=parseInt(document.getElementById('hb-weap-flat').value)||0;
+    const dmgType=document.getElementById('hb-weap-dmgtype').value; // "phy" or "mag"
+    const flatStr=flat>0?'+'+flat:flat<0?String(flat):'';
+    const dmg=die+flatStr+' '+dmgType;                              // e.g. "d8+3 phy"
+    const slot=document.getElementById('hb-weap-slot').value;       // "primary"|"secondary"
+    const weaponObj={
+      name, trait:document.getElementById('hb-weap-trait').value,
+      dmg, range:document.getElementById('hb-weap-range').value,
+      burden:document.getElementById('hb-weap-burden').value,
+      feat:document.getElementById('hb-weap-feat').value,
+      t:parseInt(document.getElementById('hb-weap-tier').value),
+      slot, isHomebrew:true
     };
-
-    if(!c.weapons) c.weapons = [];
+    if(c.weapons.some(w=>w.name===name)){showToast(`Weapon "${name}" already exists.`);return;}
     c.weapons.push(weaponObj);
-    addedToList = true;
-    showToast(`Weapon "${name}" created and added to All Weapons!`);
-
-  } 
-  else if (type === 'armor') {
-    const name = document.getElementById('hb-arm-name').value.trim();
-    if (!name) { showToast('Please enter an armor name.'); return; }
-
-    const armorObj = {
-      n: name,
-      t: parseInt(document.getElementById('hb-arm-tier').value),
-      minor: parseInt(document.getElementById('hb-arm-minor').value),
-      severe: parseInt(document.getElementById('hb-arm-severe').value),
-      score: parseInt(document.getElementById('hb-arm-score').value),
-      feat: document.getElementById('hb-arm-feat').value,
-      evMod: parseInt(document.getElementById('hb-arm-ev').value),
-      isHomebrew: true
-    };
-
-    // Add to inventory, but check for duplicates first
-    if(!c.inventory) c.inventory = [];
-    const exists = c.inventory.some(i => i.name === name && i.kind === 'armor');
-    if(!exists) {
-      invAdd(c, { kind: 'armor', name: name, summary: `T${armorObj.t} · ${armorObj.minor}/${armorObj.severe} · Score ${armorObj.score}`, data: armorObj });
-      addedToList = true;
-      showToast(`Armor "${name}" created and added to Inventory!`);
-    } else {
-      showToast(`Armor "${name}" already exists in inventory.`);
-    }
-
+    addedToList=true;
+    showToast(`Weapon "${name}" created!`);
   }
-  else if (type === 'item') {
-    const name = document.getElementById('hb-item-name').value.trim();
-    if (!name) { showToast('Please enter an item name.'); return; }
-
-    const kind = document.getElementById('hb-item-type').value === 'Consumable' ? 'consumable' : 'item';
-    const itemObj = {
-      n: name,
-      desc: document.getElementById('hb-item-desc').value,
-      isHomebrew: true
+  else if(type==='armor'){
+    const name=document.getElementById('hb-arm-name').value.trim();
+    if(!name){showToast('Please enter an armor name.');return;}
+    const armorObj={
+      n:name, t:parseInt(document.getElementById('hb-arm-tier').value),
+      minor:parseInt(document.getElementById('hb-arm-minor').value),
+      severe:parseInt(document.getElementById('hb-arm-severe').value),
+      score:parseInt(document.getElementById('hb-arm-score').value),
+      feat:document.getElementById('hb-arm-feat').value,
+      evMod:parseInt(document.getElementById('hb-arm-ev').value)||0,
+      agiMod:0, isHomebrew:true
     };
-
-    if(!c.inventory) c.inventory = [];
-    const exists = c.inventory.some(i => i.name === name && i.kind === kind);
-    if(!exists) {
-      invAdd(c, { kind: kind, name: name, summary: itemObj.desc, data: itemObj });
-      addedToList = true;
-      showToast(`Item "${name}" created and added to Inventory!`);
-    } else {
-      showToast(`Item "${name}" already exists in inventory.`);
+    if(!c.homebrewArmors)c.homebrewArmors=[];
+    // Duplicate check across homebrew list AND static DB
+    if(ARMOR_DB.some(a=>a.n===name)||c.homebrewArmors.some(a=>a.n===name)){
+      showToast(`Armor "${name}" already exists.`);return;
     }
+    // Store in c.homebrewArmors so getArmorStats() and equip logic can find it
+    c.homebrewArmors.push(armorObj);
+    // Also add to inventory so player can equip it from there
+    invAdd(c,{kind:'armor',name,summary:`T${armorObj.t} · ${armorObj.minor}/${armorObj.severe} · Score ${armorObj.score}${armorObj.feat?' · '+armorObj.feat:''}`,data:armorObj});
+    addedToList=true;
+    showToast(`Armor "${name}" created and added to inventory!`);
   }
-  else if (type === 'domain') {
-    const name = document.getElementById('hb-dom-name').value.trim();
-    if (!name) { showToast('Please enter a card name.'); return; }
-
-    const cardObj = {
-      name: name,
-      domain: document.getElementById('hb-dom-domain').value,
-      level: parseInt(document.getElementById('hb-dom-level').value),
-      type: document.getElementById('hb-dom-type').value,
-      stress: parseInt(document.getElementById('hb-dom-stress').value),
-      text: document.getElementById('hb-dom-text').value,
-      source: 'Homebrew',
-      isHomebrew: true
-    };
-
-    // Initialize homebrew cards array if it doesn't exist
-    if(!c.homebrewCards) c.homebrewCards = [];
-    
-    // Check if already exists
-    const exists = c.homebrewCards.some(card => card.name === name);
-    if(!exists) {
-      c.homebrewCards.push(cardObj);
-      
-      // Also add name to vault so the logic knows it's "owned"
-      if(!c.vault) c.vault = [];
-      if(!c.loadout) c.loadout = [];
-      if(!c.vault.includes(name)) c.vault.push(name);
-      
-      addedToList = true;
-      showToast(`Domain Card "${name}" created and added to Vault!`);
-    } else {
-      showToast(`Domain Card "${name}" already exists.`);
+  else if(type==='item'){
+    const name=document.getElementById('hb-item-name').value.trim();
+    if(!name){showToast('Please enter an item name.');return;}
+    const kind=document.getElementById('hb-item-type').value==='Consumable'?'consumable':'item';
+    const desc=document.getElementById('hb-item-desc').value;
+    if(!c.inventory)c.inventory=[];
+    if(c.inventory.some(i=>i.name===name&&i.kind===kind)){showToast(`Item "${name}" already exists.`);return;}
+    invAdd(c,{kind,name,summary:desc,data:{n:name,desc,isHomebrew:true}});
+    addedToList=true;
+    showToast(`Item "${name}" created!`);
+  }
+  else if(type==='domain'){
+    const name=document.getElementById('hb-dom-name').value.trim();
+    if(!name){showToast('Please enter a card name.');return;}
+    if(!c.homebrewCards)c.homebrewCards=[];
+    if(c.homebrewCards.some(card=>card.name===name)||DOMAIN_CARDS.some(d=>d.name===name)){
+      showToast(`Card "${name}" already exists.`);return;
     }
+    const cardObj={
+      name, domain:document.getElementById('hb-dom-domain').value,
+      level:parseInt(document.getElementById('hb-dom-level').value),
+      type:document.getElementById('hb-dom-type').value,
+      stress:parseInt(document.getElementById('hb-dom-stress').value)||0,
+      text:document.getElementById('hb-dom-text').value,
+      source:'Homebrew', isHomebrew:true
+    };
+    c.homebrewCards.push(cardObj);
+    // Now that gcbn() checks homebrewCards, we CAN push to vault safely
+    if(!c.vault)c.vault=[];
+    if(!c.vault.includes(name))c.vault.push(name);
+    addedToList=true;
+    showToast(`Domain Card "${name}" added to vault!`);
   }
 
-  if (addedToList) {
-    saveAll(chars);
-    rSheet(); 
-    
-    // Clear form fields
-    const form = document.getElementById(`hb-${type}-form`);
-    if(form) {
-      form.querySelectorAll('input, textarea').forEach(el => el.value = '');
+  if(addedToList){
+    saveAll(chars);rSheet();rDom();
+    const form=document.getElementById('hb-'+type+'-form');
+    if(form){
+      form.querySelectorAll('input[type=text],textarea').forEach(el=>el.value='');
+      form.querySelectorAll('input[type=number]').forEach(el=>{
+        if(el.id==='hb-weap-flat')el.value='0';
+        else if(el.id==='hb-arm-minor')el.value='5';
+        else if(el.id==='hb-arm-severe')el.value='11';
+        else if(el.id==='hb-arm-score')el.value='3';
+        else if(el.id==='hb-arm-ev')el.value='0';
+        else if(el.id==='hb-dom-level')el.value='1';
+        else if(el.id==='hb-dom-stress')el.value='0';
+      });
     }
   }
 }
@@ -1657,7 +1609,16 @@ function addVault(name){
   c.vault.push(name);saveAll(chars);rDom();showToast('Added to vault');
 }
 function removeCard(name){const c=gA();if(!c)return;c.loadout=(c.loadout||[]).filter(n=>n!==name);c.vault=(c.vault||[]).filter(n=>n!==name);saveAll(chars);rDom();}
-function gcbn(n){return DOMAIN_CARDS.find(d=>d.name===n);}
+function gcbn(n){
+  const c=gA();
+  if(c&&c.homebrewCards){const hb=c.homebrewCards.find(d=>d.name===n);if(hb)return hb;}
+  return DOMAIN_CARDS.find(d=>d.name===n);
+}
+// Merged domain cards: static catalog + character's homebrew cards
+function allDomainCards(c){
+  const hb=(c&&c.homebrewCards)||[];
+  return [...DOMAIN_CARDS,...hb];
+}
 
 // ════════════════════════════════════════════════════════
 // SHEET
@@ -1695,22 +1656,15 @@ function rSheet(){
     return `${prof*n}d${die}${flat}${type}`;
   }
 
-    function wRow(w,i){
+  function wRow(w,i){
     const isEqP=c.equippedPrimary===i;
     const isEqS=c.equippedSecondary===i;
     const isEq=isEqP||isEqS;
     const scaledDmg=scaleDmg(w.dmg);
     const wPayload=hcp({name:w.name||'Weapon',tier:w.burden||'',text:`${w.trait} · ${w.range} · ${scaledDmg} (base: ${w.dmg}, ×Prof ${prof})`,list:w.feat?[{label:w.feat}]:[]});
-    
-    // Generate the Unequip Button HTML (only if equipped)
-    const unequipBtn = isEq ? `
-      <button data-unequip-weap="${i}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.06em;padding:2px 6px;border-radius:20px;border:1px solid var(--red);background:none;color:var(--red);cursor:pointer;margin-left:4px" title="Unequip">✕</button>
-    ` : '';
-
     return `<tr style="background:${isEq?'#c8a96e0a':''}">
       <td style="padding:5px 4px;font-size:12px;color:${isEq?'var(--gold2)':'var(--text)'}">
         <span class="sc-feat-badge" data-feature="${wPayload}" style="cursor:default;text-decoration:none">${w.name||'—'}</span>${isEqP?' <span style="font-size:9px;color:var(--gold3);font-family:Cinzel,serif">PRIMARY</span>':''}${isEqS?' <span style="font-size:9px;color:var(--teal);font-family:Cinzel,serif">SECONDARY</span>':''}
-        ${unequipBtn}
       </td>
       <td style="padding:5px 4px;font-size:11px;color:var(--text3)">${w.trait}</td>
       <td style="padding:5px 4px;font-size:12px;color:var(--gold2)">${scaledDmg}</td>
@@ -1719,6 +1673,7 @@ function rSheet(){
         <div style="display:flex;gap:3px;flex-wrap:wrap">
           <button data-equip-p="${i}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.06em;padding:2px 6px;border-radius:20px;border:1px solid ${isEqP?'var(--gold)':'var(--border2)'};background:${isEqP?'#c8a96e22':'none'};color:${isEqP?'var(--gold2)':'var(--text3)'};cursor:pointer">${isEqP?'★ Primary':'Primary'}</button>
           <button data-equip-s="${i}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.06em;padding:2px 6px;border-radius:20px;border:1px solid ${isEqS?'var(--teal)':'var(--border2)'};background:${isEqS?'#4a9e8a22':'none'};color:${isEqS?'var(--teal2)':'var(--text3)'};cursor:pointer">${isEqS?'★ Secondary':'Secondary'}</button>
+          <button data-rm-weap="${i}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.06em;padding:2px 6px;border-radius:20px;border:1px solid var(--red);background:none;color:var(--red);cursor:pointer" title="Remove weapon">✕ Remove</button>
         </div>
       </td>
     </tr>`;
@@ -1911,144 +1866,127 @@ function rSheet(){
         ${mkS(armorStats.score,c.armorFilled,'as','tAR')}
       </div>
 
-            <div class="st">Domain Loadout <span style="font-weight:300;color:var(--text3);font-family:Crimson Pro,serif;font-size:11px">${c.loadout.length}/5</span></div>
-      <div class="card">${lH}${vH?`<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><div style="font-family:'Cinzel',serif;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:.25rem">Vault</div>${vH}</div>`:''}
+      <div class="st">Domain Loadout <span style="font-weight:300;color:var(--text3);font-family:Crimson Pro,serif;font-size:11px">${c.loadout.length}/5</span></div>
+      <div class="card">${lH}${vH?`<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><div style="font-family:Cinzel,serif;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:.25rem">Vault</div>${vH}</div>`:''}
       <div style="margin-top:.45rem"><button class="btn bgh" onclick="showTab('domains')">Manage →</button></div></div>
 
-      <!-- HOME BREW DOMAIN CARDS SECTION -->
+      <!-- HOMEBREW DOMAIN CARDS ON SHEET -->
       ${(()=>{
-        if(!c.homebrewCards || c.homebrewCards.length === 0) return '';
-        const hbCards = c.homebrewCards;
-        const hbHtml = hbCards.map(card => {
-          const dc = 'd-' + (card.domain || '').toLowerCase();
-          const stress = card.stress > 0 ? ` · Stress ${card.stress}` : '';
-          const voidTag = card.source === 'Homebrew' ? `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:#c8a96e22;color:#c8a96e;border:1px solid #c8a96e44;font-family:'Cinzel',serif;letter-spacing:.05em;margin-left:3px">HOME BREW</span>` : '';
-          
-          // Create a payload for the hovercard
-          const hPayload = hcp({
-            name: card.name,
-            tier: `${card.domain} · Level ${card.level} · ${card.type}${stress}`,
-            text: card.text,
-            list: []
-          });
-
-          return `<div class="lcm ${dc} sc-feat-badge" data-feature="${hPayload}" style="cursor:default;margin-bottom:4px">
-            <div class="lcmn">${card.name} ${voidTag}</div>
-            <div class="lcmm">${card.domain} · Lv${card.level} · ${card.type}${stress}</div>
-          </div>`;
+        if(!c.homebrewCards||c.homebrewCards.length===0)return '';
+        const hbHtml=c.homebrewCards.map(card=>{
+          const dc='d-'+(card.domain||'').toLowerCase();
+          const stress=card.stress>0?` · Stress ${card.stress}`:'';
+          const hbTag=`<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:#c8a96e22;color:#c8a96e;border:1px solid #c8a96e44;font-family:'Cinzel',serif;letter-spacing:.05em;margin-left:3px">HOMEBREW</span>`;
+          const safeId=('hb_'+card.name).replace(/[^a-zA-Z0-9_]/g,'_');
+          const inL=(c.loadout||[]).includes(card.name);
+          const sn=card.name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          const lBtnStyle='font-family:Cinzel,serif;font-size:8px;letter-spacing:.06em;padding:2px 7px;border-radius:20px;cursor:pointer;border:1px solid '+(inL?'var(--gold)':'var(--border2)')+';background:'+(inL?'#c8a96e22':'none')+';color:'+(inL?'var(--gold2)':'var(--text3)');
+          return `<div style="margin-bottom:5px"><div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap"><span class="bdg bg2" style="cursor:pointer;border-color:var(--gold3)" onclick="toggleHeritageFeat('${safeId}')">${card.name}${hbTag}</span><button style="${lBtnStyle}" onclick="toggleLoadout('${sn}');rSheet()">${inL?'★ In Loadout':'+ Loadout'}</button></div><div id="hf_${safeId}" style="display:none;margin:4px 0 3px 0;padding:.5rem .65rem;background:var(--bg3);border-left:2px solid var(--gold3);border-radius:0 var(--r) var(--r) 0;font-size:11px;color:var(--text2);line-height:1.6"><strong>${card.domain} · Lv${card.level} · ${card.type}${stress}</strong><br>${card.text}</div></div>`;
         }).join('');
-        
-        return `<div class="st">Homebrew Domain Cards</div>
-        <div class="card" style="background:var(--bg2);border-color:var(--gold3)">${hbHtml}</div>`;
+        return `<div class="st">Homebrew Domain Cards</div><div style="margin-bottom:.5rem">${hbHtml}</div>`;
       })()}
 
       <div class="st">Notes</div>
       <textarea id="sheetNotesInput" style="width:100%;min-height:120px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);padding:.6rem .75rem;font-family:'Crimson Pro',serif;font-size:13px;line-height:1.65;resize:vertical" placeholder="Notes, class features, reminders…">${c.notes||''}</textarea>
 
-            <div class="st">Inventory</div>
+      <div class="st">Inventory</div>
       <div style="position:relative;margin-bottom:.5rem">
         <input id="invSearchInput" type="text" placeholder="Search armor, items, consumables… (weapons go to All Weapons)" style="width:100%" autocomplete="off">
         <div id="invSearchResults" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:50;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);box-shadow:0 6px 24px #0008;max-height:320px;overflow-y:auto;margin-top:2px"></div>
       </div>
       <div id="invList">
-                  ${(()=>{
-            const inv=c.inventory||[];
-            if(!inv.length)return '<div style="font-size:11px;color:var(--text3);font-style:italic">No items in inventory. Search above to add armor, items, or consumables.</div>';
-            return inv.map((item,idx)=>{
-              const kindColor=item.kind==='weapon'?'var(--gold3)':item.kind==='armor'?'var(--teal)':item.kind==='consumable'?'var(--ember)':'var(--muted)';
-              const fullDesc=(item.data&&(item.data.desc||item.data.feat))?
-                (item.data.desc?item.data.desc+' '+(item.data.feat?'Feature: '+item.data.feat:''):''):
-                (item.summary||'');
-              const iPayload=hcp({name:item.name,tier:item.kind.charAt(0).toUpperCase()+item.kind.slice(1),text:fullDesc,list:[]});
-              
-              // Generate Equip Buttons based on item kind
-              let equipButtons = '';
-              if(item.kind==='armor'){
-                equipButtons = `<button data-inv-equip-armor="${idx}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.07em;padding:2px 8px;border-radius:20px;border:1px solid var(--teal);background:none;color:var(--teal2);cursor:pointer;margin-right:4px">Equip</button>`;
-              } else if(item.kind==='weapon'){
-                equipButtons = `
-                  <button data-inv-equip-weap-p="${idx}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.07em;padding:2px 6px;border-radius:20px;border:1px solid var(--gold);background:none;color:var(--gold2);cursor:pointer;margin-right:2px">Primary</button>
-                  <button data-inv-equip-weap-s="${idx}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.07em;padding:2px 6px;border-radius:20px;border:1px solid var(--teal);background:none;color:var(--teal2);cursor:pointer;margin-right:4px">Secondary</button>
-                `;
-              }
-              
-              return `<div class="sc-feat-badge" data-feature="${iPayload}" style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:.4rem .6rem;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);margin-bottom:3px;cursor:default">
-                <div>
-                  <div style="font-size:12px;color:var(--text);font-weight:500">${item.name} <span style="font-size:9px;color:${kindColor};font-family:Cinzel,serif;text-transform:uppercase">${item.kind}</span></div>
-                  <div style="font-size:10px;color:var(--text3)">${item.summary||''}</div>
-                </div>
-                <div style="display:flex;gap:4px;flex-shrink:0">
-                  ${equipButtons}
-                  <button data-inv-remove="${idx}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.07em;padding:2px 8px;border-radius:20px;border:1px solid var(--red);background:none;color:var(--red);cursor:pointer">✕</button>
-                </div>
-              </div>`;
-            }).join('');
-          })()}
-      </div>
-
-      <!-- HOME BREW SECTION -->
-      <div class="st">Homebrew Creator</div>
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.8rem;margin-bottom:1rem">
-        <div class="tabs" style="margin-bottom:.8rem;border-bottom:1px solid var(--border)">
-          <button class="tb active" onclick="switchHomebrewTab('weapon')">Weapon</button>
-          <button class="tb" onclick="switchHomebrewTab('armor')">Armor</button>
-          <button class="tb" onclick="switchHomebrewTab('item')">Item</button>
-          <button class="tb" onclick="switchHomebrewTab('domain')">Domain Card</button>
-        </div>
-
-        <!-- Weapon Form -->
-        <div id="hb-weapon-form" class="hb-form">
-          <div class="g2">
-            <div class="fld"><label class="fl">Name</label><input type="text" id="hb-weap-name" placeholder="e.g. Voidblade"></div>
-            <div class="fld"><label class="fl">Tier</label><select id="hb-weap-tier"><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3">Tier 3</option><option value="4">Tier 4</option></select></div>
-            <div class="fld"><label class="fl">Trait</label><select id="hb-weap-trait">${TRAITS_LIST.map(t=>`<option>${t}</option>`).join('')}</select></div>
-            <div class="fld"><label class="fl">Range</label><select id="hb-weap-range"><option>Melee</option><option>Very Close</option><option>Close</option><option>Far</option><option>Very Far</option></select></div>
-            <div class="fld"><label class="fl">Damage Formula</label><input type="text" id="hb-weap-dmg" placeholder="e.g. 1d8+3" value="1d8+3"></div>
-            <div class="fld"><label class="fl">Burden</label><select id="hb-weap-burden"><option>One-Handed</option><option>Two-Handed</option></select></div>
-            <div class="fld" style="grid-column:1/-1"><label class="fl">Feature/Description</label><textarea id="hb-weap-feat" placeholder="e.g. Deals extra damage to undead." style="min-height:60px"></textarea></div>
-          </div>
-          <button class="btn bg" style="margin-top:.8rem;width:100%" onclick="createHomebrew('weapon')">Create & Add to Inventory</button>
-        </div>
-
-        <!-- Armor Form -->
-        <div id="hb-armor-form" class="hb-form" style="display:none">
-          <div class="g2">
-            <div class="fld"><label class="fl">Name</label><input type="text" id="hb-arm-name" placeholder="e.g. Shadowweave Vest"></div>
-            <div class="fld"><label class="fl">Tier</label><select id="hb-arm-tier"><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3">Tier 3</option><option value="4">Tier 4</option></select></div>
-            <div class="fld"><label class="fl">Minor Threshold Bonus</label><input type="number" id="hb-arm-minor" value="5" min="0"></div>
-            <div class="fld"><label class="fl">Severe Threshold Bonus</label><input type="number" id="hb-arm-severe" value="11" min="0"></div>
-            <div class="fld"><label class="fl">Armor Score</label><input type="number" id="hb-arm-score" value="3" min="0" max="12"></div>
-            <div class="fld"><label class="fl">Evasion Modifier</label><input type="number" id="hb-arm-ev" value="0" step="1"></div>
-            <div class="fld" style="grid-column:1/-1"><label class="fl">Feature/Description</label><textarea id="hb-arm-feat" placeholder="e.g. Grants advantage on Stealth rolls." style="min-height:60px"></textarea></div>
-          </div>
-          <button class="btn bg" style="margin-top:.8rem;width:100%" onclick="createHomebrew('armor')">Create & Add to Inventory</button>
-        </div>
-
-        <!-- Item Form -->
-        <div id="hb-item-form" class="hb-form" style="display:none">
-          <div class="g2">
-            <div class="fld"><label class="fl">Name</label><input type="text" id="hb-item-name" placeholder="e.g. Potion of Speed"></div>
-            <div class="fld"><label class="fl">Type</label><select id="hb-item-type"><option>Consumable</option><option>Magic Item</option></select></div>
-            <div class="fld" style="grid-column:1/-1"><label class="fl">Description/Effect</label><textarea id="hb-item-desc" placeholder="e.g. Drink to gain +2 Agility until next rest." style="min-height:80px"></textarea></div>
-          </div>
-          <button class="btn bg" style="margin-top:.8rem;width:100%" onclick="createHomebrew('item')">Create & Add to Inventory</button>
-        </div>
-
-        <!-- Domain Card Form -->
-        <div id="hb-domain-form" class="hb-form" style="display:none">
-          <div class="g2">
-            <div class="fld"><label class="fl">Name</label><input type="text" id="hb-dom-name" placeholder="e.g. Fireball Nova"></div>
-            <div class="fld"><label class="fl">Domain</label><select id="hb-dom-domain">${DOMAINS_ALL.map(d=>`<option>${d}</option>`).join('')}</select></div>
-            <div class="fld"><label class="fl">Level</label><input type="number" id="hb-dom-level" value="1" min="1" max="10"></div>
-            <div class="fld"><label class="fl">Type</label><select id="hb-dom-type"><option>Spell</option><option>Ability</option><option>Grimoire</option></select></div>
-            <div class="fld"><label class="fl">Stress Cost</label><input type="number" id="hb-dom-stress" value="0" min="0"></div>
-            <div class="fld" style="grid-column:1/-1"><label class="fl">Effect Text</label><textarea id="hb-dom-text" placeholder="e.g. Make a Spellcast Roll (12). On success, deal 2d6+3 magic damage." style="min-height:80px"></textarea></div>
-          </div>
-          <button class="btn bg" style="margin-top:.8rem;width:100%" onclick="createHomebrew('domain')">Create & Add to Inventory</button>
-        </div>
+        ${(()=>{
+          const inv=c.inventory||[];
+          if(!inv.length)return '<div style="font-size:11px;color:var(--text3);font-style:italic">No items in inventory. Search above to add armor, items, or consumables.</div>';
+          return inv.map((item,idx)=>{
+            const kindColor=item.kind==='weapon'?'var(--gold3)':item.kind==='armor'?'var(--teal)':item.kind==='consumable'?'var(--ember)':'var(--muted)';
+            const fullDesc=(item.data&&(item.data.desc||item.data.feat))?
+              (item.data.desc?item.data.desc+' '+(item.data.feat?'Feature: '+item.data.feat:''):''):
+              (item.summary||'');
+            const iPayload=hcp({name:item.name,tier:item.kind.charAt(0).toUpperCase()+item.kind.slice(1),text:fullDesc,list:[]});
+            return `<div class="sc-feat-badge" data-feature="${iPayload}" style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:.4rem .6rem;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);margin-bottom:3px;cursor:default">
+              <div>
+                <div style="font-size:12px;color:var(--text);font-weight:500">${item.name} <span style="font-size:9px;color:${kindColor};font-family:Cinzel,serif;text-transform:uppercase">${item.kind}</span></div>
+                <div style="font-size:10px;color:var(--text3)">${item.summary||''}</div>
+              </div>
+              <div style="display:flex;gap:4px;flex-shrink:0">
+                ${item.kind==='armor'?`<button data-inv-equip-armor="${idx}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.07em;padding:2px 8px;border-radius:20px;border:1px solid var(--teal);background:none;color:var(--teal2);cursor:pointer">Equip</button>`:''}
+                <button data-inv-remove="${idx}" style="font-family:Cinzel,serif;font-size:8px;letter-spacing:.07em;padding:2px 8px;border-radius:20px;border:1px solid var(--red);background:none;color:var(--red);cursor:pointer">✕</button>
+              </div>
+            </div>`;
+          }).join('');
+        })()}
       </div>
     </div>
   </div>
+  <hr class="dv">
+  <div class="st">Homebrew Creator</div>
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.8rem;margin-bottom:1rem">
+    <div class="tabs" style="margin-bottom:.8rem;border-bottom:1px solid var(--border)">
+      <button class="tb active" onclick="switchHomebrewTab('weapon')">Weapon</button>
+      <button class="tb" onclick="switchHomebrewTab('armor')">Armor</button>
+      <button class="tb" onclick="switchHomebrewTab('item')">Item</button>
+      <button class="tb" onclick="switchHomebrewTab('domain')">Domain Card</button>
+    </div>
+
+    <!-- Weapon Form -->
+    <div id="hb-weapon-form" class="hb-form">
+      <div class="g2">
+        <div class="fld"><label class="fl">Name</label><input type="text" id="hb-weap-name" placeholder="e.g. Voidblade"></div>
+        <div class="fld"><label class="fl">Tier</label><select id="hb-weap-tier"><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3">Tier 3</option><option value="4">Tier 4</option></select></div>
+        <div class="fld"><label class="fl">Trait</label><select id="hb-weap-trait">${TRAITS_LIST.map(t=>'<option>'+t+'</option>').join('')}</select></div>
+        <div class="fld"><label class="fl">Range</label><select id="hb-weap-range"><option>Melee</option><option>Very Close</option><option>Close</option><option>Far</option><option>Very Far</option></select></div>
+        <div class="fld"><label class="fl">Die Size</label><select id="hb-weap-die"><option>d4</option><option>d6</option><option selected>d8</option><option>d10</option><option>d12</option><option>d20</option></select></div>
+        <div class="fld"><label class="fl">Flat Modifier</label><input type="number" id="hb-weap-flat" value="0" step="1"></div>
+        <div class="fld"><label class="fl">Damage Type</label><select id="hb-weap-dmgtype"><option value="phy">Physical</option><option value="mag">Magic</option></select></div>
+        <div class="fld"><label class="fl">Burden</label><select id="hb-weap-burden"><option>One-Handed</option><option>Two-Handed</option></select></div>
+        <div class="fld"><label class="fl">Slot</label><select id="hb-weap-slot"><option value="primary">Primary</option><option value="secondary">Secondary</option></select></div>
+        <div class="fld" style="grid-column:1/-1"><label class="fl">Feature / Description</label><textarea id="hb-weap-feat" placeholder="e.g. Deals extra damage to undead." style="min-height:55px"></textarea></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin:.4rem 0 .6rem">Proficiency multiplies the number of dice automatically. Set the base die and flat modifier only.</div>
+      <button class="btn bg" style="width:100%" onclick="createHomebrew('weapon')">Create Weapon</button>
+    </div>
+
+    <!-- Armor Form -->
+    <div id="hb-armor-form" class="hb-form" style="display:none">
+      <div class="g2">
+        <div class="fld"><label class="fl">Name</label><input type="text" id="hb-arm-name" placeholder="e.g. Shadowweave Vest"></div>
+        <div class="fld"><label class="fl">Tier</label><select id="hb-arm-tier"><option value="1">Tier 1</option><option value="2">Tier 2</option><option value="3">Tier 3</option><option value="4">Tier 4</option></select></div>
+        <div class="fld"><label class="fl">Major Threshold (base)</label><input type="number" id="hb-arm-minor" value="5" min="0"></div>
+        <div class="fld"><label class="fl">Severe Threshold (base)</label><input type="number" id="hb-arm-severe" value="11" min="0"></div>
+        <div class="fld"><label class="fl">Armor Score</label><input type="number" id="hb-arm-score" value="3" min="0" max="12"></div>
+        <div class="fld"><label class="fl">Evasion Modifier</label><input type="number" id="hb-arm-ev" value="0" step="1"></div>
+        <div class="fld" style="grid-column:1/-1"><label class="fl">Feature / Description</label><textarea id="hb-arm-feat" placeholder="e.g. Grants advantage on Stealth rolls." style="min-height:55px"></textarea></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin:.4rem 0 .6rem">Base thresholds shown here; your level is added automatically on the sheet.</div>
+      <button class="btn bg" style="width:100%" onclick="createHomebrew('armor')">Create Armor</button>
+    </div>
+
+    <!-- Item Form -->
+    <div id="hb-item-form" class="hb-form" style="display:none">
+      <div class="g2">
+        <div class="fld"><label class="fl">Name</label><input type="text" id="hb-item-name" placeholder="e.g. Potion of Speed"></div>
+        <div class="fld"><label class="fl">Type</label><select id="hb-item-type"><option>Consumable</option><option>Magic Item</option></select></div>
+        <div class="fld" style="grid-column:1/-1"><label class="fl">Description / Effect</label><textarea id="hb-item-desc" placeholder="e.g. Drink to gain +2 Agility until next rest." style="min-height:70px"></textarea></div>
+      </div>
+      <button class="btn bg" style="margin-top:.6rem;width:100%" onclick="createHomebrew('item')">Create Item</button>
+    </div>
+
+    <!-- Domain Card Form -->
+    <div id="hb-domain-form" class="hb-form" style="display:none">
+      <div class="g2">
+        <div class="fld"><label class="fl">Name</label><input type="text" id="hb-dom-name" placeholder="e.g. Fireball Nova"></div>
+        <div class="fld"><label class="fl">Domain</label><select id="hb-dom-domain">${DOMAINS_ALL.map(d=>'<option>'+d+'</option>').join('')}</select></div>
+        <div class="fld"><label class="fl">Level</label><input type="number" id="hb-dom-level" value="1" min="1" max="10"></div>
+        <div class="fld"><label class="fl">Type</label><select id="hb-dom-type"><option>Spell</option><option>Ability</option><option>Grimoire</option></select></div>
+        <div class="fld"><label class="fl">Stress Cost</label><input type="number" id="hb-dom-stress" value="0" min="0"></div>
+        <div class="fld" style="grid-column:1/-1"><label class="fl">Effect Text</label><textarea id="hb-dom-text" placeholder="e.g. Make a Spellcast Roll (12). On success, deal 2d6+3 magic damage." style="min-height:70px"></textarea></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin:.4rem 0 .6rem">Card is added directly to your vault and appears in the Domain Cards tab.</div>
+      <button class="btn bg" style="margin-top:.6rem;width:100%" onclick="createHomebrew('domain')">Create Domain Card</button>
+    </div>
+  </div>
+
   <hr class="dv">
   <div style="display:flex;gap:7px;flex-wrap:wrap">
     <button class="btn bo" onclick="showTab('builder')">← Builder</button>
@@ -2087,47 +2025,24 @@ function rSheet(){
         saveAll(chars);rSheet();
       });
     });
-  // Wire UNEQUIP buttons (Move to Inventory)
-  if(tbody){
-    tbody.querySelectorAll('[data-unequip-weap]').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const c = gA();
-        if(!c) return;
-        
-        const i = parseInt(btn.dataset.unequipWeap);
-        const weapon = c.weapons[i];
-        
-        if(!weapon) return;
-
-        // 1. Check if it's equipped and unequip it first
-        if(c.equippedPrimary === i) {
-          c.equippedPrimary = null;
-        } else if(c.equippedSecondary === i) {
-          c.equippedSecondary = null;
-        }
-
-        // 2. Add to Inventory (if not already there)
-        // We create a copy of the weapon data for the inventory
-        const existsInInv = c.inventory.some(invItem => invItem.name === weapon.name && invItem.kind === 'weapon');
-        if(!existsInInv) {
-          invAdd(c, {
-            kind: 'weapon',
-            name: weapon.name,
-            summary: `${weapon.trait} · ${weapon.range} · ${weapon.dmg}`,
-            data: weapon
-          });
-        }
-
-        // 3. REMOVE from the weapons array (This makes it disappear from "All Weapons")
-        c.weapons.splice(i, 1);
-
-        // 4. Save and Re-render
-        saveAll(chars);
-        rSheet(); 
-        showToast(`"${weapon.name}" unequipped and moved to Inventory.`);
+    tbody.querySelectorAll('[data-rm-weap]').forEach(btn=>{
+      btn.addEventListener('click',e=>{
+        e.stopPropagation();
+        const c=gA();if(!c)return;
+        const i=parseInt(btn.dataset.rmWeap);
+        if(isNaN(i))return;
+        if(!confirm('Remove "'+( c.weapons[i]&&c.weapons[i].name||'this weapon')+'" from your weapon list?'))return;
+        // Unequip if currently equipped
+        if(c.equippedPrimary===i)c.equippedPrimary=null;
+        if(c.equippedSecondary===i)c.equippedSecondary=null;
+        // Shift indices for weapons after the removed one
+        if(typeof c.equippedPrimary==='number'&&c.equippedPrimary>i)c.equippedPrimary--;
+        if(typeof c.equippedSecondary==='number'&&c.equippedSecondary>i)c.equippedSecondary--;
+        c.weapons.splice(i,1);
+        saveAll(chars);rSheet();
+        showToast('Weapon removed.');
       });
     });
-  }
   }
   // Unequip armor button
   const sheetEl=document.getElementById('sheetContent');
@@ -2168,87 +2083,6 @@ function rSheet(){
       showToast(item.name+' equipped!');
     });
   });
-  // Equip armor directly from inventory
-  sheetEl.querySelectorAll('[data-inv-equip-armor]').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      const c=gA();if(!c)return;
-      const idx=parseInt(btn.dataset.invEquipArmor);
-      const item=c.inventory[idx];
-      if(!item||item.kind!=='armor')return;
-      // If something is already equipped, send it to inventory first
-      if(c.equippedArmor)unequipArmorToInv(c);
-      // Equip this armor
-      const a=item.data;
-      c.equippedArmor=item.name;
-      c.armorScore=a.score||3;
-      // Remove from inventory
-      invRemove(c,idx);
-      saveAll(chars);rSheet();
-      showToast(item.name+' equipped!');
-    });
-  });
-
-  // Equip Primary Weapon from inventory
-  sheetEl.querySelectorAll('[data-inv-equip-weap-p]').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      const c=gA();if(!c)return;
-      const idx=parseInt(btn.dataset.invEquipWeapP);
-      const item=c.inventory[idx];
-      if(!item||item.kind!=='weapon')return;
-      
-      // If something is already equipped as primary, send it to inventory first
-      if(c.equippedPrimary!==null&&c.equippedPrimary!==undefined){
-        unequipWeaponToInv(c,'primary');
-      }
-      
-      // Add weapon to weapons array
-      const w = item.data;
-      c.weapons.push(w);
-      const newIdx = c.weapons.length - 1;
-      
-      // Equip it
-      c.equippedPrimary = newIdx;
-      
-      // Remove from inventory
-      invRemove(c,idx);
-      
-      saveAll(chars);rSheet();
-      showToast(item.name+' equipped as Primary!');
-    });
-  });
-
-  // Equip Secondary Weapon from inventory
-  sheetEl.querySelectorAll('[data-inv-equip-weap-s]').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      const c=gA();if(!c)return;
-      const idx=parseInt(btn.dataset.invEquipWeapS);
-      const item=c.inventory[idx];
-      if(!item||item.kind!=='weapon')return;
-      
-      // If something is already equipped as secondary, send it to inventory first
-      if(c.equippedSecondary!==null&&c.equippedSecondary!==undefined){
-        unequipWeaponToInv(c,'secondary');
-      }
-      
-      // Add weapon to weapons array
-      const w = item.data;
-      c.weapons.push(w);
-      const newIdx = c.weapons.length - 1;
-      
-      // Equip it
-      c.equippedSecondary = newIdx;
-      
-      // Remove from inventory
-      invRemove(c,idx);
-      
-      saveAll(chars);rSheet();
-      showToast(item.name+' equipped as Secondary!');
-    });
-  });
-
   // Inventory item search — floating dropdown, weapons go to weapon list
   const invSearch=document.getElementById('invSearchInput');
   const invResults=document.getElementById('invSearchResults');
@@ -2452,7 +2286,7 @@ function rDom(){
   const pips=Array.from({length:5},(_,i)=>`<div class="lp${i<c.loadout.length?' on':''}"></div>`).join('');
   lbEl.innerHTML=`<div class="lb"><span class="lbl">Loadout</span><div class="lps">${pips}</div><span style="font-size:11px;color:var(--text3);margin-left:7px">${c.loadout.length}/5 active — click a card to toggle loadout/vault</span></div>`;
   const classDomains=(c.selectedClass&&CLASSES[c.selectedClass])?CLASSES[c.selectedClass].domains:[];
-  const levels=['All','1','2','3','4','5','6','7','8','9','10'],sources=['All','Core','Void'];
+  const levels=['All','1','2','3','4','5','6','7','8','9','10'],sources=['All','Core','Void','Homebrew'];
   let fh='';
   // Class-domain toggle
   if(classDomains.length>0){
@@ -2471,7 +2305,8 @@ function rDom(){
   fh+='<span class="dfl" style="margin-left:5px">Source</span>';
   sources.forEach(s=>{fh+=`<button class="fc2${fS===s?' act':''}" onclick="fS='${s}';rDom()">${s}</button>`;});
   fEl.innerHTML=fh;
-  let filtered=DOMAIN_CARDS;
+  const allCards=allDomainCards(c);
+  let filtered=allCards;
   if(fClassOnly&&classDomains.length>0){
     filtered=filtered.filter(card=>classDomains.includes(card.domain));
   } else if(fD!=='All'){
@@ -2480,6 +2315,7 @@ function rDom(){
   if(fL!=='All')filtered=filtered.filter(card=>card.level===parseInt(fL));
   if(fS==='Core')filtered=filtered.filter(card=>card.source==='Core');
   else if(fS==='Void')filtered=filtered.filter(card=>card.source==='Void');
+  else if(fS==='Homebrew')filtered=filtered.filter(card=>card.source==='Homebrew');
   if(!filtered.length){gEl.innerHTML='<div class="nr">No cards match these filters.</div>';return;}
   gEl.innerHTML=filtered.map(card=>{
     const dc='d-'+card.domain.toLowerCase();
@@ -3782,122 +3618,6 @@ function showToast(msg){const t=document.getElementById('toast');t.textContent=m
 rSb();
 if(activeId&&chars.find(c=>c.id===activeId)){oE();pF(gA());}else cE();
 initThemePicker();
-</script>
-<script>
-// --- SAFE HOME BREW INJECTION SCRIPT ---
-(function() {
-  // Wait for the page to load
-  window.addEventListener('load', function() {
-    // Check if we are on the Sheet tab
-    const sheetTab = document.getElementById('tab-sheet');
-    if (!sheetTab) return;
-
-    // Function to inject Homebrew section
-    function injectHomebrewSection() {
-      const c = gA(); // Get current character
-      if (!c || !c.homebrewCards || c.homebrewCards.length === 0) return;
-
-      // Find the Domain Loadout card
-      const domainCard = sheetTab.querySelector('.card:has-text("Domain Loadout")') || 
-                         Array.from(sheetTab.querySelectorAll('.card')).find(card => card.innerText.includes('Domain Loadout'));
-      
-      if (!domainCard) return;
-
-      // Create the Homebrew Section
-      const section = document.createElement('div');
-      section.className = 'st';
-      section.textContent = 'Homebrew Domain Cards';
-      
-      const cardContainer = document.createElement('div');
-      cardContainer.className = 'card';
-      cardContainer.style.cssText = 'background:var(--bg2);border-color:var(--gold3);margin-top:1rem';
-
-      c.homebrewCards.forEach(card => {
-        const stress = card.stress > 0 ? ` · Stress ${card.stress}` : '';
-        const voidTag = `<span style="font-size:8px;padding:1px 4px;border-radius:3px;background:#c8a96e22;color:#c8a96e;border:1px solid #c8a96e44;font-family:'Cinzel',serif;letter-spacing:.05em;margin-left:3px">HOME BREW</span>`;
-        
-        const payloadObj = {
-          name: card.name,
-          tier: `${card.domain} · Level ${card.level} · ${card.type}${stress}`,
-          text: card.text,
-          list: []
-        };
-        const hPayload = JSON.stringify(payloadObj).replace(/"/g, '&quot;');
-        
-        const div = document.createElement('div');
-        div.className = `lcm d-${(card.domain||'').toLowerCase()} sc-feat-badge`;
-        div.setAttribute('data-feature', hPayload);
-        div.style.cssText = 'cursor:default;margin-bottom:4px';
-        
-        div.innerHTML = `
-          <div class="lcmn">${card.name} ${voidTag}</div>
-          <div class="lcmm">${card.domain} · Lv${card.level} · ${card.type}${stress}</div>
-        `;
-        
-        cardContainer.appendChild(div);
-      });
-
-      // Insert after the Domain Loadout card
-      domainCard.parentNode.insertBefore(section, domainCard.nextSibling);
-      domainCard.parentNode.insertBefore(cardContainer, section.nextSibling);
-
-      // Re-attach hovercard listeners to new elements
-      attachHovercardListeners();
-    }
-
-    // Helper to attach hovercard listeners (copied from rSheet)
-    function attachHovercardListeners() {
-      const hc = document.getElementById('hovercard');
-      const hcTitle = document.getElementById('hovercard-title');
-      const hcTier = document.getElementById('hovercard-tier');
-      const hcBody = document.getElementById('hovercard-body');
-      let hcTimer = null;
-
-      document.querySelectorAll('.sc-feat-badge').forEach(badge => {
-        // Remove old listeners to prevent duplicates
-        const newBadge = badge.cloneNode(true);
-        badge.parentNode.replaceChild(newBadge, badge);
-        
-        newBadge.addEventListener('mouseenter', e => {
-          clearTimeout(hcTimer);
-          try {
-            const f = JSON.parse(newBadge.dataset.feature.replace(/&quot;/g, '"'));
-            hcTitle.textContent = f.name;
-            hcTier.textContent = f.tier;
-            let bodyHtml = `<span style="color:var(--text2)">${f.text}</span>`;
-            if (f.list && f.list.length) {
-              bodyHtml += '<div style="margin-top:.4rem;display:flex;flex-direction:column;gap:.35rem">';
-              f.list.forEach(it => {
-                bodyHtml += `<div style="font-size:11px;color:var(--text3);line-height:1.5;padding:.3rem .5rem;background:var(--bg3);border-radius:3px;border-left:2px solid var(--border2)">${it.label}</div>`;
-              });
-              bodyHtml += '</div>';
-            }
-            hcBody.innerHTML = bodyHtml;
-            hc.style.display = 'block';
-            positionHovercard(e);
-          } catch (err) { /* malformed data */ }
-        });
-        newBadge.addEventListener('mousemove', e => positionHovercard(e));
-        newBadge.addEventListener('mouseleave', () => {
-          hcTimer = setTimeout(() => { hc.style.display = 'none'; }, 80);
-        });
-      });
-    }
-
-    // Run injection immediately
-    injectHomebrewSection();
-
-    // Also run whenever the Sheet tab is shown (in case rSheet re-renders)
-    const observer = new MutationObserver(mutations => {
-      mutations.forEach(mutation => {
-        if (mutation.type === 'childList' && mutation.target.id === 'sheetContent') {
-          injectHomebrewSection();
-        }
-      });
-    });
-    observer.observe(document.getElementById('sheetContent'), { childList: true, subtree: true });
-  });
-})();
 </script>
 </body>
 </html>
