@@ -243,6 +243,46 @@ hr.dv{border:none;border-top:1px solid var(--border);margin:1.1rem 0}
 .ref-tag{display:inline-block;font-size:10px;padding:1px 7px;border-radius:20px;border:1px solid var(--border2);color:var(--text3);margin:1px}
 .ref-empty{color:var(--text3);font-size:13px;text-align:center;padding:2rem;font-style:italic}
 .ref-count{font-size:11px;color:var(--text3);margin-bottom:.6rem}
+
+/* ═══════════════════════════════════════════════════════════════
+   MINIMALIST SHEET LAYOUT
+   ═══════════════════════════════════════════════════════════════ */
+/* Traits band — compact 3x2 grid directly under header */
+.traits-band{margin-bottom:1rem}
+.traits-band .g3{gap:.35rem}
+.traits-band .card.csm{padding:.35rem .4rem}
+.traits-band .tn{font-size:7px;letter-spacing:.06em}
+.traits-band .tv{font-size:18px;line-height:1;font-weight:400}
+.traits-band .tm{font-size:9px;margin-top:0}
+.traits-band .tbs{gap:3px;margin-top:3px}
+.traits-band .tbtn{width:20px;height:20px;font-size:11px}
+.traits-band .st{display:none}
+
+/* Vitals row — 4 equal-width segments */
+.vitals-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.7rem;margin-bottom:1rem;padding:.75rem;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r)}
+.vitals-row > div{display:flex;flex-direction:column;gap:.25rem}
+.vitals-row .st{margin:0 0 .15rem 0;font-size:9px}
+.vitals-row .card{padding:.35rem .5rem;background:var(--bg);margin:0}
+.vitals-row .rl{font-size:10px;margin-bottom:.25rem}
+.vitals-row .slots{gap:3px}
+@media(max-width:600px){.vitals-row{grid-template-columns:repeat(2,1fr);gap:.5rem}}
+
+/* Combat strip */
+.combat-strip{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.combat-strip .st{font-size:9px;margin-bottom:.25rem}
+.combat-strip .card{padding:.4rem .55rem}
+@media(max-width:780px){.combat-strip{grid-template-columns:1fr;gap:.8rem}}
+
+/* Sheet sub-tabs */
+.sht-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:1rem;overflow-x:auto;scrollbar-width:none}
+.sht-tabs::-webkit-scrollbar{display:none}
+.sht-tab{font-family:'Cinzel',serif;font-size:10px;letter-spacing:.1em;padding:.55rem 1rem;background:none;border:none;border-bottom:2px solid transparent;color:var(--text3);cursor:pointer;text-transform:uppercase;margin-bottom:-1px;white-space:nowrap;transition:color .15s,border-color .15s}
+.sht-tab:hover{color:var(--text2)}
+.sht-tab.active{color:var(--gold);border-bottom-color:var(--gold)}
+.sht-panes{min-height:200px}
+.sht-pane{display:none}
+.sht-pane.active{display:block}
+
 </style>
 </head>
 <body>
@@ -1743,51 +1783,11 @@ function rSheet(){
       }
       html+='</div>';
       return html;
-    })()}
-    ${(()=>{
-      // Only show panel if any content exists
-      const hasClass=!!c.selectedClass;
-      const hasSub=!!c.selectedSubclass;
-      const hasExp=c.experiences&&c.experiences.some(e=>e.name);
-      const hasBg=!!(c.background&&c.background.trim());
-      if(!hasClass&&!hasSub&&!hasExp&&!hasBg)return '';
-      return `<div style="margin-top:.6rem;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);overflow:hidden">
-        <button onclick="toggleHeritageFeat('classTraitsPanel')" style="width:100%;background:none;border:none;padding:.5rem .75rem;display:flex;align-items:center;justify-content:space-between;cursor:pointer;color:var(--text2);font-family:Cinzel,serif;font-size:10px;letter-spacing:.12em;text-transform:uppercase">
-          <span>Class &amp; Traits</span>
-          <span style="color:var(--text3);font-family:'Crimson Pro',serif;font-size:10px;letter-spacing:0;text-transform:none">tap to expand ▾</span>
-        </button>
-        <div id="hf_classTraitsPanel" style="display:none;padding:.6rem .75rem .75rem;border-top:1px solid var(--border);background:var(--bg)">
-      ${(()=>{
-        if(!c.selectedClass||!CLASS_FEATURES[c.selectedClass])return '';
-        const cf=CLASS_FEATURES[c.selectedClass];
-        function classBadge(f,colorVar,idPrefix){
-          const safeId=(idPrefix+'_'+f.name).replace(/[^a-zA-Z0-9_]/g,'_');
-          return `<span class="bdg bg2" style="cursor:pointer;border-color:${colorVar};margin-right:4px" onclick="toggleHeritageFeat('${safeId}')">${f.name}</span><div id="hf_${safeId}" style="display:none;margin:4px 0 6px 0;padding:.5rem .65rem;background:var(--bg3);border-left:2px solid ${colorVar};border-radius:0 var(--r) var(--r) 0;font-size:11px;color:var(--text2);line-height:1.6">${f.text}</div>`;
-        }
-        let html=`<div class="st">Class Features — ${c.selectedClass}</div><div style="margin-bottom:.5rem">`;
-        html+=`<div style="font-size:10px;font-family:Cinzel,serif;letter-spacing:.08em;text-transform:uppercase;color:var(--gold3);margin-bottom:4px">Hope Feature</div>`;
-        html+=classBadge(cf.hope,'var(--gold)','hope_'+c.selectedClass);
-        html+=`<div style="font-size:10px;font-family:Cinzel,serif;letter-spacing:.08em;text-transform:uppercase;color:var(--teal2);margin-top:.5rem;margin-bottom:4px">Class Feature${cf.features.length>1?'s':''}</div>`;
-        cf.features.forEach(f=>{ html+=classBadge(f,'var(--teal2)','cls_'+c.selectedClass); });
-        html+='</div>';
-        return html;
-      })()}
-      ${c.selectedSubclass?`<div class="st">Subclass — ${c.selectedSubclass}</div>${scB}<div style="margin-top:.35rem"><button class="btn bgh" onclick="showTab('builder')">View full features →</button></div>`:''}
-
-      <div class="st">Experiences</div>
-      <div style="padding:.18rem 0">${eb}</div>
-
-      <div class="st">Background</div>
-      <div style="font-size:12px;color:var(--text2);line-height:1.6">${c.background||'<em style="color:var(--text3)">No background written.</em>'}</div>
+    })()}  </div>
 
 
-        </div>
-      </div>`;
-    })()}
-  </div>
-
-  <div class="s2">
-    <div>
+  <!-- TRAITS (compact 3x2 grid) -->
+  <div class="traits-band">
       <div class="st">Traits</div>
       <div class="g3" style="gap:.4rem">${TRAITS_LIST.map(t=>`
         <div class="card csm" style="text-align:center">
@@ -1799,7 +1799,34 @@ function rSheet(){
             <button class="tbtn" onclick="sheetChT('${t}',1)">+</button>
           </div>
         </div>`).join('')}</div>
+  </div>
 
+  <!-- VITALS ROW (HP / Stress / Hope / Armor in a single horizontal band) -->
+  <div class="vitals-row">
+      <div class="st">Hit Points <span style="font-weight:300;color:var(--text3);font-family:Crimson Pro,serif;font-size:11px">(click to mark)</span></div>
+      <div class="card"><div class="rl"><span>Slots: ${c.hpSlots}</span><span style="color:var(--red)">${c.hpFilled} marked</span></div>${mkS(c.hpSlots,c.hpFilled,'hs','tHP')}</div>
+      <div class="st">Stress</div>
+      <div class="card"><div class="rl"><span>Slots: ${c.stressSlots}</span><span style="color:var(--ember)">${c.stressFilled} marked</span></div>${mkS(c.stressSlots,c.stressFilled,'ss','tST')}</div>
+      <div class="st">Hope</div>
+      <div class="card"><div class="rl"><span>Max 6</span><span style="color:var(--teal2)">${c.hopeFilled}/6</span></div>${mkS(6,c.hopeFilled,'hos','tHO')}</div>
+      <div class="st">Armor</div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
+          <div class="sc-feat-badge" data-feature="${(()=>{if(!armorStats.name&&!c.armorName)return hcp({name:'No Armor',tier:'',text:'No armor currently equipped.',list:[]});const nm=armorStats.name||c.armorName;const lv3=parseInt(c.level)||1;const list=[];const a=ARMOR_DB.find(x=>x.n===nm);if(a){list.push({label:`Base (level ${lv3}): ${lv3} / ${lv3*2}`});list.push({label:`Armor bonus: +${a.minor} / +${a.severe}`});list.push({label:`Total: ${armorStats.minor} / ${armorStats.severe}`});}else{list.push({label:`Minor/Major: ${armorStats.minor}`});list.push({label:`Severe: ${armorStats.severe}`});}list.push({label:`Armor Score: ${armorStats.score}`});if(armorStats.feat)list.push({label:`Feature: ${armorStats.feat}`});if(armorStats.evMod)list.push({label:`Evasion modifier: ${armorStats.evMod>0?'+':''}${armorStats.evMod}`});return hcp({name:nm,tier:'Armor',text:'',list});})()}" style="cursor:default">
+            <div style="font-size:13px;color:var(--text)">${armorStats.name||c.armorName||'No armor'}</div>
+            ${armorStats.feat?`<div style="font-size:11px;color:var(--teal2);margin-top:1px;font-style:italic">${armorStats.feat}</div>`:''}
+            ${armorStats.evMod?`<div style="font-size:11px;color:var(--text3)">Evasion ${armorStats.evMod>0?'+':''}${armorStats.evMod}</div>`:''}
+          </div>
+          ${armorStats.name?`<button data-unequip-armor="1" style="font-family:Cinzel,serif;font-size:9px;padding:2px 8px;border-radius:20px;border:1px solid var(--red);background:none;color:var(--red);cursor:pointer">Unequip</button>`:''}
+        </div>
+        <div class="rl"><span>Slots: ${armorStats.score}</span><span style="color:#8070b0">${c.armorFilled} spent</span></div>
+        ${mkS(armorStats.score,c.armorFilled,'as','tAR')}
+      </div>
+  </div>
+
+  <!-- COMBAT STRIP (stats and active weapons) -->
+  <div class="combat-strip">
+    <div class="combat-left">
       <div class="st">Core Stats</div>
       <div class="card">
         <div class="sr">
@@ -1820,7 +1847,6 @@ function rSheet(){
           </span>
         </div>
       </div>
-
       <div class="st">Damage Thresholds</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.1rem">
         <div style="background:var(--bg2);border:1px solid #c0505033;border-radius:var(--r);padding:.5rem .75rem;text-align:center">
@@ -1843,47 +1869,26 @@ function rSheet(){
         </div>
       </div>
       ${armorStats.name?`<div style="font-size:10px;color:var(--text3);margin-top:.25rem">Thresholds from: <em style="color:var(--gold3)">${armorStats.name}</em></div>`:`<div style="font-size:10px;color:var(--text3);margin-top:.25rem">Using base thresholds (no armor equipped)</div>`}
-
-      <div class="st">Hit Points <span style="font-weight:300;color:var(--text3);font-family:Crimson Pro,serif;font-size:11px">(click to mark)</span></div>
-      <div class="card"><div class="rl"><span>Slots: ${c.hpSlots}</span><span style="color:var(--red)">${c.hpFilled} marked</span></div>${mkS(c.hpSlots,c.hpFilled,'hs','tHP')}</div>
-
-      <div class="st">Stress</div>
-      <div class="card"><div class="rl"><span>Slots: ${c.stressSlots}</span><span style="color:var(--ember)">${c.stressFilled} marked</span></div>${mkS(c.stressSlots,c.stressFilled,'ss','tST')}</div>
-
-      <div class="st">Hope</div>
-      <div class="card"><div class="rl"><span>Max 6</span><span style="color:var(--teal2)">${c.hopeFilled}/6</span></div>${mkS(6,c.hopeFilled,'hos','tHO')}</div>
-
-      <div class="st">Armor</div>
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem">
-          <div class="sc-feat-badge" data-feature="${(()=>{if(!armorStats.name&&!c.armorName)return hcp({name:'No Armor',tier:'',text:'No armor currently equipped.',list:[]});const nm=armorStats.name||c.armorName;const lv3=parseInt(c.level)||1;const list=[];const a=ARMOR_DB.find(x=>x.n===nm);if(a){list.push({label:`Base (level ${lv3}): ${lv3} / ${lv3*2}`});list.push({label:`Armor bonus: +${a.minor} / +${a.severe}`});list.push({label:`Total: ${armorStats.minor} / ${armorStats.severe}`});}else{list.push({label:`Minor/Major: ${armorStats.minor}`});list.push({label:`Severe: ${armorStats.severe}`});}list.push({label:`Armor Score: ${armorStats.score}`});if(armorStats.feat)list.push({label:`Feature: ${armorStats.feat}`});if(armorStats.evMod)list.push({label:`Evasion modifier: ${armorStats.evMod>0?'+':''}${armorStats.evMod}`});return hcp({name:nm,tier:'Armor',text:'',list});})()}" style="cursor:default">
-            <div style="font-size:13px;color:var(--text)">${armorStats.name||c.armorName||'No armor'}</div>
-            ${armorStats.feat?`<div style="font-size:11px;color:var(--teal2);margin-top:1px;font-style:italic">${armorStats.feat}</div>`:''}
-            ${armorStats.evMod?`<div style="font-size:11px;color:var(--text3)">Evasion ${armorStats.evMod>0?'+':''}${armorStats.evMod}</div>`:''}
-          </div>
-          ${armorStats.name?`<button data-unequip-armor="1" style="font-family:Cinzel,serif;font-size:9px;padding:2px 8px;border-radius:20px;border:1px solid var(--red);background:none;color:var(--red);cursor:pointer">Unequip</button>`:''}
-        </div>
-        <div class="rl"><span>Slots: ${armorStats.score}</span><span style="color:#8070b0">${c.armorFilled} spent</span></div>
-        ${mkS(armorStats.score,c.armorFilled,'as','tAR')}
-      </div>
-
     </div>
-
-    <div>
+    <div class="combat-right">
       <div class="st">Active Weapons</div>
       <div style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem">
         ${wStatBox('Primary','equippedPrimary' in c?c.equippedPrimary:null,'var(--gold3)')}
         ${wStatBox('Secondary','equippedSecondary' in c?c.equippedSecondary:null,'var(--teal)')}
       </div>
+    </div>
+  </div>
 
-      <div class="st">All Weapons <span style="font-family:Crimson Pro,serif;font-weight:300;font-size:11px;color:var(--text3)">(click to equip)</span></div>
-      <div class="card" style="overflow:auto">
-        <table style="width:100%;border-collapse:collapse">
-          <thead><tr>${['Name','Trait','Damage','Range','Equip'].map(h=>`<th style="text-align:left;font-size:9px;font-family:Cinzel,serif;letter-spacing:.1em;color:var(--text3);padding-bottom:5px">${h}</th>`).join('')}</tr></thead>
-          <tbody id="weapTableBody">${wrRows||'<tr><td colspan="5" style="color:var(--text3);font-size:11px;padding:5px 0">No weapons</td></tr>'}</tbody>
-        </table>
-      </div>
-
+  <!-- SHEET SUB-TABS -->
+  <div class="sht-tabs">
+    <button class="sht-tab active" onclick="sheetSub('domains',this)">Domains</button>
+    <button class="sht-tab" onclick="sheetSub('weapons',this)">Weapons</button>
+    <button class="sht-tab" onclick="sheetSub('features',this)">Features</button>
+    <button class="sht-tab" onclick="sheetSub('inventory',this)">Inventory</button>
+    <button class="sht-tab" onclick="sheetSub('notes',this)">Notes</button>
+  </div>
+  <div class="sht-panes">
+    <div class="sht-pane active" data-pane="domains">
       <div class="st">Domain Loadout <span style="font-weight:300;color:var(--text3);font-family:Crimson Pro,serif;font-size:11px">${c.loadout.length}/5</span></div>
       <div class="card">${lH}${vH?`<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><div style="font-family:Cinzel,serif;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:.25rem">Vault</div>${vH}</div>`:''}
       <div style="margin-top:.45rem"><button class="btn bgh" onclick="showTab('domains')">Manage →</button></div></div>
@@ -1903,10 +1908,48 @@ function rSheet(){
         }).join('');
         return `<div class="st">Homebrew Domain Cards</div><div style="margin-bottom:.5rem">${hbHtml}</div>`;
       })()}
-
-      <div class="st">Notes</div>
-      <textarea id="sheetNotesInput" style="width:100%;min-height:120px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);padding:.6rem .75rem;font-family:'Crimson Pro',serif;font-size:13px;line-height:1.65;resize:vertical" placeholder="Notes, class features, reminders…">${c.notes||''}</textarea>
-
+    </div>
+    <div class="sht-pane" data-pane="weapons">
+      <div class="st">All Weapons <span style="font-family:Crimson Pro,serif;font-weight:300;font-size:11px;color:var(--text3)">(click to equip)</span></div>
+      <div class="card" style="overflow:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>${['Name','Trait','Damage','Range','Equip'].map(h=>`<th style="text-align:left;font-size:9px;font-family:Cinzel,serif;letter-spacing:.1em;color:var(--text3);padding-bottom:5px">${h}</th>`).join('')}</tr></thead>
+          <tbody id="weapTableBody">${wrRows||'<tr><td colspan="5" style="color:var(--text3);font-size:11px;padding:5px 0">No weapons</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+    <div class="sht-pane" data-pane="features">
+      ${(()=>{
+        // Render class features, subclass, experiences, background inline
+        let out='';
+        if(c.selectedClass&&CLASS_FEATURES[c.selectedClass]){
+          const cf=CLASS_FEATURES[c.selectedClass];
+          out+=`<div class="st">Class Features — ${c.selectedClass}</div><div style="margin-bottom:.5rem">`;
+          // Hope feature (gold)
+          if(cf.hope){
+            const safeId=('cf_'+c.selectedClass+'_hope').replace(/[^a-zA-Z0-9_]/g,'_');
+            out+=`<span class="bdg bg2" style="cursor:pointer;border-color:var(--gold3);margin-right:4px" onclick="toggleHeritageFeat('${safeId}')">${cf.hope.name}</span><div id="hf_${safeId}" style="display:none;margin:4px 0 6px 0;padding:.5rem .65rem;background:var(--bg3);border-left:2px solid var(--gold3);border-radius:0 var(--r) var(--r) 0;font-size:11px;color:var(--text2);line-height:1.6">${cf.hope.text}</div>`;
+          }
+          // Class features (teal)
+          if(cf.features){
+            cf.features.forEach((f,i)=>{
+              const safeId=('cf_'+c.selectedClass+'_'+i).replace(/[^a-zA-Z0-9_]/g,'_');
+              out+=`<span class="bdg bg2" style="cursor:pointer;border-color:var(--teal);margin-right:4px" onclick="toggleHeritageFeat('${safeId}')">${f.name}</span><div id="hf_${safeId}" style="display:none;margin:4px 0 6px 0;padding:.5rem .65rem;background:var(--bg3);border-left:2px solid var(--teal);border-radius:0 var(--r) var(--r) 0;font-size:11px;color:var(--text2);line-height:1.6">${f.text}</div>`;
+            });
+          }
+          out+='</div>';
+        }
+        if(c.selectedSubclass){
+          out+=`<div class="st">Subclass — ${c.selectedSubclass}</div>${scB}`;
+        }
+        out+=`<div class="st">Experiences</div><div style="margin-bottom:.5rem">${eb}</div>`;
+        if(c.background&&c.background.trim()){
+          out+=`<div class="st">Background</div><div style="font-size:12px;color:var(--text2);line-height:1.55;font-style:italic;margin-bottom:.5rem">${c.background.replace(/\n/g,'<br>')}</div>`;
+        }
+        return out||'<div style="color:var(--text3);font-size:11px;font-style:italic;padding:.5rem 0">No class, subclass, experiences, or background set. Configure in the Builder tab.</div>';
+      })()}
+    </div>
+    <div class="sht-pane" data-pane="inventory">
       <div class="st">Inventory</div>
       <div style="position:relative;margin-bottom:.5rem">
         <input id="invSearchInput" type="text" placeholder="Search armor, items, consumables… (weapons go to All Weapons)" style="width:100%" autocomplete="off">
@@ -1937,7 +1980,12 @@ function rSheet(){
         })()}
       </div>
     </div>
-  </div>  <hr class="dv">
+    <div class="sht-pane" data-pane="notes">
+      <div class="st">Notes</div>
+      <textarea id="sheetNotesInput" style="width:100%;min-height:120px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);padding:.6rem .75rem;font-family:'Crimson Pro',serif;font-size:13px;line-height:1.65;resize:vertical" placeholder="Notes, class features, reminders…">${c.notes||''}</textarea>
+    </div>
+  </div>
+  <hr class="dv">
   <div class="st">Homebrew Creator</div>
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:.8rem;margin-bottom:1rem">
     <div class="tabs" style="margin-bottom:.8rem;border-bottom:1px solid var(--border)">
@@ -2250,6 +2298,14 @@ function positionHovercard(e){
   hc.style.left=Math.max(pad,x)+'px';
   hc.style.top=Math.max(pad,y)+'px';
 }
+function sheetSub(name,btn){
+  document.querySelectorAll('.sht-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.sht-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  const pane=document.querySelector('.sht-pane[data-pane="'+name+'"]');
+  if(pane)pane.classList.add('active');
+}
+
 function toggleHeritageFeat(id){
   const el=document.getElementById('hf_'+id);
   if(!el)return;
