@@ -22,10 +22,10 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Crimson Pro',Georgia,serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:20px;line-height:1.6}
 ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg2)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
-.hdr{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:100}
+.hdr{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 1rem;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:100;gap:.5rem}
 .logo{font-family:'Cinzel',serif;font-size:15px;letter-spacing:.12em;color:var(--gold);font-weight:500}
 .logo span{color:var(--text3);font-size:13px;margin-left:8px;font-family:'Crimson Pro',serif;letter-spacing:.04em;font-weight:300}
-.ha{display:flex;gap:6px;align-items:center}
+.ha{display:flex;gap:6px;align-items:center;overflow-x:auto;scrollbar-width:none;flex-shrink:1;min-width:0}.ha::-webkit-scrollbar{display:none}
 .lay{display:grid;grid-template-columns:195px 1fr;min-height:calc(100vh - 54px)}
 .sb{background:var(--bg2);border-right:1px solid var(--border);padding:1.25rem 0;position:sticky;top:54px;height:calc(100vh - 54px);overflow-y:auto}
 .sb-sec{padding:0 .7rem;margin-bottom:1.25rem}
@@ -41,7 +41,7 @@ body{font-family:'Crimson Pro',Georgia,serif;background:var(--bg);color:var(--te
 .sb-new{width:100%;padding:.5rem .55rem;background:none;border:1px dashed var(--border2);border-radius:var(--r);color:var(--muted);font-family:'Crimson Pro',serif;font-size:15px;cursor:pointer;transition:all .15s;text-align:left}
 .sb-new:hover{border-color:var(--gold3);color:var(--gold);background:var(--bg3)}
 .main{padding:1.4rem;overflow-y:auto}.sheet-wrap{padding:0}
-.tabs{display:flex;gap:2px;margin-bottom:1.4rem;border-bottom:1px solid var(--border)}
+.tabs{display:flex;gap:2px;margin-bottom:1.4rem;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}.tabs::-webkit-scrollbar{display:none}
 .tb{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;padding:.5rem .9rem;background:none;border:none;border-bottom:3px solid transparent;color:var(--text3);cursor:pointer;transition:all .15s;text-transform:uppercase}
 .tb:hover{color:var(--text2);background:var(--bg3)}.tb.active{color:var(--bg);background:var(--gold);border-bottom:3px solid var(--gold3);font-weight:600}
 .tp{display:none}.tp.active{display:block;width:100%}
@@ -386,7 +386,7 @@ hr.dv{border:none;border-top:1px solid var(--border);margin:1.1rem 0}
   <div class="logo">DGHRT</div>
   <div class="ha" style="display:flex;align-items:center;gap:6px">
     <select id="fontSizeSlider" title="Text size" onchange="applyFontSize(parseInt(this.value))"
-      style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);padding:3px 6px;cursor:pointer;align-self:center">
+      style="font-family:'Cinzel',serif;font-size:11px;letter-spacing:.06em;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);color:var(--text2);padding:3px 6px;cursor:pointer;align-self:center;min-width:90px;max-width:120px">
       <option value="0">A — Small</option>
       <option value="1">A — Compact</option>
       <option value="2" selected>A — Normal</option>
@@ -3928,8 +3928,7 @@ if(activeId&&chars.find(c=>c.id===activeId)){oE();pF(gA());}else cE();
 initThemePicker();
 </script>
 <footer style="text-align:center;padding:.75rem 1rem;font-size:13px;color:var(--text3);border-top:1px solid var(--border);background:var(--bg2);font-family:'Crimson Pro',serif;line-height:1.6">
-  This product includes materials from the Daggerheart System Reference Document 1.0, © Critical Role, LLC. under the terms of the Darrington Press Community Gaming (DPCGL)
-License. More information can be found at <a href="https://www.daggerheart.com/" target="_blank" style="color:var(--gold3);text-decoration:none">https://www.daggerheart.com.</a> There are no previous modifications by others.
+  All information contained is based on the official <a href="https://www.daggerheart.com/srd/" target="_blank" style="color:var(--gold3);text-decoration:none">SRD document</a>. For the official Daggerheart site, visit <a href="http://daggerheart.com" target="_blank" style="color:var(--gold3);text-decoration:none">daggerheart.com</a>.
 </footer>
 </body>
 </html>
