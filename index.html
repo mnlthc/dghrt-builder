@@ -2331,7 +2331,7 @@ function bldRenderDomainCards(){
             ${inLoadout?'✓ In Loadout':inVault?'✓ In Vault':'+ Loadout'}
           </button>
         </div>
-        <div class="bld-dc-text">${card.text.replace(/<[^>]+>/g,'').slice(0,180)}${card.text.length>180?'…':''}</div>
+        <div class="bld-dc-text">${card.text}</div>
       </div>`;
     }).join('');
 
